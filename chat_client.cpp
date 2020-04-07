@@ -107,7 +107,6 @@ private:
     tcp::socket socket;
     ChatMessage read_message;
     std::deque<ChatMessage> write_messages;
-    std::queue<ChatMessage> received_files;
 };
 
 std::vector<char> readFileBytes(const std::string& name) {
@@ -195,7 +194,7 @@ int main(int argc, char* argv[]){
             }
             else{
                 std::cin.getline(line + l, ChatMessage::max_body_length + 1);
-                std::cout << "Wrong command! Commands list: /send-message ; /send-file ; /save-file" << std::endl;
+                std::cout << "Wrong command! Commands list: /send-message , /send-file" << std::endl;
             }
         }
 

@@ -3,6 +3,8 @@
 ### Build and compilation
 
 ```
+mkdir downloads
+mkdir build
 cd build
 cmake ..
 make

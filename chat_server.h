@@ -26,9 +26,9 @@ private:
 public:
     void deliver(const ChatMessage& message);
 
-    void join(std::shared_ptr<ChatMember> member);
+    void join(const std::shared_ptr<ChatMember>& member);
 
-    void leave(std::shared_ptr<ChatMember> member);
+    void leave(const std::shared_ptr<ChatMember>& member);
 };
 
 class ChatSession : public ChatMember, public std::enable_shared_from_this<ChatSession>{

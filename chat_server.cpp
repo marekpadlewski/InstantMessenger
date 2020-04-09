@@ -7,18 +7,18 @@ void ChatRoom::deliver(const ChatMessage& message){
     while (recent_messages_deq.size() > MAX_RECENT_MESSAGES)
         recent_messages_deq.pop_front();
 
-    for (auto member : members){
+    for (const auto& member : members){
         member->deliver(message);
     }
 }
 
-void ChatRoom::join(std::shared_ptr<ChatMember> member){
+void ChatRoom::join(const std::shared_ptr<ChatMember>& member){
     members.insert(member);
     for (auto message : recent_messages_deq)
         member->deliver(message);
 }
 
-void ChatRoom::leave(std::shared_ptr<ChatMember> member){
+void ChatRoom::leave(const std::shared_ptr<ChatMember>& member){
     members.erase(member);
 }
 
@@ -106,7 +106,7 @@ ChatServer::ChatServer(boost::asio::io_context& io_ctx, const tcp::endpoint& end
 int main (int argc, char* argv[]){
     try {
         if (argc < 2){
-            std::cerr << "Usage: ./server <port>" << std::endl;
+            std::cerr << "Usage: ./server <port> [<port> ...]" << std::endl;
             return 1;
         }
 
@@ -114,8 +114,14 @@ int main (int argc, char* argv[]){
 
         std::list<ChatServer> servers;
         for (int i = 1 ; i < argc ; i++){
-            tcp::endpoint endpoint(tcp::v4(), std::atoi(argv[i]));
-            servers.emplace_back(io_ctx, endpoint);
+            if (auto port = std::atoi(argv[i])){
+                tcp::endpoint endpoint(tcp::v4(), port);
+                servers.emplace_back(io_ctx, endpoint);
+            }
+            else{
+                std::cerr << "Error: argument (port) not valid" << std::endl;
+            }
+
         }
 
         io_ctx.run();

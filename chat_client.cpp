@@ -27,8 +27,6 @@ void ChatClient::connect(const tcp::resolver::results_type& endpoints){
                     read_header();
                 }
             });
-
-    //tu byla zmiana w endpoints & TODO
 }
 
 void ChatClient::read_header(){

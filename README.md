@@ -9,7 +9,7 @@ cd build
 cmake ..
 make
 
-./server <port>
+./server <port> [<port> ...]
 ./client <host> <port> <username>
 ```
 

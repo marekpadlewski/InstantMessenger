@@ -1,144 +1,107 @@
-#include <cstdlib>
-#include <deque>
-#include <iostream>
-#include <list>
-#include <memory>
-#include <set>
-#include <utility>
-#include <boost/asio.hpp>
-#include "chat_message.h"
+#include "chat_server.h"
 
 using boost::asio::ip::tcp;
 
-class ChatMember{
-public:
-    virtual ~ChatMember(){}
-    virtual void deliver(const ChatMessage& msg) = 0;
-};
+void ChatRoom::deliver(const ChatMessage& message){
+    recent_messages_deq.push_back(message);
+    while (recent_messages_deq.size() > MAX_RECENT_MESSAGES)
+        recent_messages_deq.pop_front();
 
-class ChatRoom{
-private:
-    std::set<std::shared_ptr<ChatMember>> members;
-    std::deque<ChatMessage> recent_messages_deq;
-    const unsigned int MAX_RECENT_MESSAGES = 100;
-public:
-    void deliver(const ChatMessage& message){
-        recent_messages_deq.push_back(message);
-        while (recent_messages_deq.size() > MAX_RECENT_MESSAGES)
-            recent_messages_deq.pop_front();
-
-        for (auto member : members){
-            member->deliver(message);
-        }
+    for (auto member : members){
+        member->deliver(message);
     }
+}
 
-    void join(std::shared_ptr<ChatMember> member){
-        members.insert(member);
-        for (auto message : recent_messages_deq)
-            member->deliver(message);
-    }
+void ChatRoom::join(std::shared_ptr<ChatMember> member){
+    members.insert(member);
+    for (auto message : recent_messages_deq)
+        member->deliver(message);
+}
 
-    void leave(std::shared_ptr<ChatMember> member){
-        members.erase(member);
-    }
-};
+void ChatRoom::leave(std::shared_ptr<ChatMember> member){
+    members.erase(member);
+}
 
-class ChatSession : public ChatMember, public std::enable_shared_from_this<ChatSession>{
-private:
-    tcp::socket socket;
-    ChatRoom& room;
-    ChatMessage read_message;
-    std::deque<ChatMessage> write_messages;
 
-    void read_header(){
-        auto self(shared_from_this());
-        boost::asio::async_read(socket,
-                boost::asio::buffer(read_message.get_data(), ChatMessage::header_length),
-                [this, self](boost::system::error_code ec, std::size_t){
-                    if (!ec && read_message.decode_header()){
-                        read_body();
-                    }
-                    else{
-                        room.leave(shared_from_this());
-                    }
-        });
-    }
 
-    void read_body(){
-        auto self(shared_from_this());
-        boost::asio::async_read(socket,
-                boost::asio::buffer(read_message.body(), read_message.get_body_length()),
-                [this, self](boost::system::error_code ec, std::size_t){
-                    if (!ec){
-                        room.deliver(read_message);
-                        read_header();
-                    }
-                    else{
-                        room.leave(shared_from_this());
-                    }
-        });
-    }
-
-    void write(){
-        auto self(shared_from_this());
-        boost::asio::async_write(socket,
-                boost::asio::buffer(write_messages.front().get_data(), write_messages.front().length()),
-                [this, self](boost::system::error_code ec, std::size_t){
-                    if (!ec){
-                        write_messages.pop_front();
-                        if (!write_messages.empty()){
-                            write();
-                        }
-                    }
-                    else{
-                        room.leave(shared_from_this());
-                    }
-        });
-    }
-
-public:
-    ChatSession(tcp::socket socket_, ChatRoom& room_)
-        :   socket(std::move(socket_)),
-            room(room_)
-    {}
-
-    void start(){
-        room.join(shared_from_this());
-        read_header();
-    }
-
-    void deliver(const ChatMessage& message){
-        bool write_in_progress = !write_messages.empty();
-        write_messages.push_back(message);
-        if (!write_in_progress){
-            write();
-        }
-    }
-};
-
-class ChatServer{
-private:
-    tcp::acceptor acceptor;
-    ChatRoom room;
-
-    void accept(){
-        acceptor.async_accept(
-                [this](boost::system::error_code ec, tcp::socket socket){
-                    if (!ec){
-                        std::make_shared<ChatSession>(std::move(socket), room)->start();
-                    }
-
-                    accept();
+void ChatSession::read_header(){
+    auto self(shared_from_this());
+    boost::asio::async_read(socket,
+            boost::asio::buffer(read_message.get_data(), ChatMessage::header_length),
+            [this, self](boost::system::error_code ec, std::size_t){
+                if (!ec && read_message.decode_header()){
+                    read_body();
                 }
-                );
-    }
+                else{
+                    room.leave(shared_from_this());
+                }
+            });
+}
 
-public:
-    ChatServer(boost::asio::io_context& io_ctx, const tcp::endpoint& endpoint)
-        :   acceptor(io_ctx, endpoint){
-        accept();
+void ChatSession::read_body(){
+    auto self(shared_from_this());
+    boost::asio::async_read(socket,
+            boost::asio::buffer(read_message.body(), read_message.get_body_length()),
+            [this, self](boost::system::error_code ec, std::size_t){
+                if (!ec){
+                    room.deliver(read_message);
+                    read_header();
+                }
+                else{
+                    room.leave(shared_from_this());
+                }
+            });
+}
+
+void ChatSession::write(){
+    auto self(shared_from_this());
+    boost::asio::async_write(socket,
+            boost::asio::buffer(write_messages.front().get_data(), write_messages.front().length()),
+            [this, self](boost::system::error_code ec, std::size_t){
+                if (!ec){
+                    write_messages.pop_front();
+                    if (!write_messages.empty()){
+                        write();
+                    }
+                }
+                else{
+                    room.leave(shared_from_this());
+                }
+            });
+}
+
+ChatSession::ChatSession(tcp::socket socket_, ChatRoom& room_)
+    : socket(std::move(socket_)), room(room_){}
+
+void ChatSession::start(){
+    room.join(shared_from_this());
+    read_header();
+}
+
+void ChatSession::deliver(const ChatMessage& message){
+    bool write_in_progress = !write_messages.empty();
+    write_messages.push_back(message);
+    if (!write_in_progress){
+        write();
     }
-};
+}
+
+
+
+void ChatServer::accept(){
+    acceptor.async_accept(
+            [this](boost::system::error_code ec, tcp::socket socket){
+                if (!ec){
+                    std::make_shared<ChatSession>(std::move(socket), room)->start();
+                }
+
+                accept();
+            }
+    );
+}
+
+ChatServer::ChatServer(boost::asio::io_context& io_ctx, const tcp::endpoint& endpoint)
+    : acceptor(io_ctx, endpoint){ accept(); }
 
 int main (int argc, char* argv[]){
     try {

@@ -1,113 +1,96 @@
-#include <cstdlib>
-#include <deque>
-#include <iostream>
-#include <thread>
-#include <fstream>
-#include <vector>
-#include <queue>
-#include <boost/asio.hpp>
-#include "chat_message.h"
+#include "chat_client.h"
 
 using boost::asio::ip::tcp;
 
-class ChatClient{
-public:
-    ChatClient(boost::asio::io_context& io_ctx_,
-            const tcp::resolver::results_type& endpoints)
-            : io_ctx(io_ctx_), socket(io_ctx_){
-        connect(endpoints);
-    }
+ChatClient::ChatClient(boost::asio::io_context& io_ctx_, const tcp::resolver::results_type& endpoints)
+    : io_ctx(io_ctx_), socket(io_ctx_){ connect(endpoints); }
 
-    void write(const ChatMessage& message){
-        boost::asio::post(io_ctx, [this, message](){
-            bool write_in_progress = !write_messages.empty();
-            write_messages.push_back(message);
-            if (!write_in_progress){
-                do_write();
-            }
-        });
-    }
+void ChatClient::write(const ChatMessage& message){
+    boost::asio::post(io_ctx, [this, message](){
+        bool write_in_progress = !write_messages.empty();
+        write_messages.push_back(message);
+        if (!write_in_progress){
+            do_write();
+        }
+    });
+}
 
-    void close(){
-        boost::asio::post(io_ctx, [this]() { socket.close(); });
-    }
+void ChatClient::close(){
+    boost::asio::post(io_ctx, [this]() { socket.close(); });
+}
 
-private:
-    unsigned int file_count = 1;
 
-    void connect(const tcp::resolver::results_type& endpoints){
-        boost::asio::async_connect(socket, endpoints,
-                [this](boost::system::error_code ec, tcp::endpoint){
-                    if (!ec){
+void ChatClient::connect(const tcp::resolver::results_type& endpoints){
+    boost::asio::async_connect(socket, endpoints,
+            [this](boost::system::error_code ec, const tcp::endpoint&){
+                if (!ec){
+                    read_header();
+                }
+            });
+
+    //tu byla zmiana w endpoints & TODO
+}
+
+void ChatClient::read_header(){
+    boost::asio::async_read(socket,
+            boost::asio::buffer(read_message.get_data(), ChatMessage::header_length),
+            [this](boost::system::error_code ec, std::size_t){
+                if (!ec && read_message.decode_header()){
+                    read_body();
+                }
+                else{
+                    socket.close();
+                }
+            });
+}
+
+void ChatClient::read_body(){
+    boost::asio::async_read(socket,
+            boost::asio::buffer(read_message.body(), read_message.get_body_length()),
+            [this](boost::system::error_code ec, std::size_t){
+                if (!ec){
+                    std::string type(read_message.get_data(), read_message.type_length);
+
+                    if (type == "MESS"){
+                        std::cout.write(read_message.body(), read_message.get_body_length());
+                        std::cout << std::endl;
                         read_header();
                     }
-                });
-    }
+                    else if (type == "FILE"){
+                        std::string filename = "../downloads/file";
+                        filename += std::to_string(file_count);
+                        std::cout << "Writing file content to " << filename << std::endl;
+                        std::ofstream out_file(filename, std::ofstream::out);
+                        out_file.write(read_message.body(), read_message.get_body_length());
+                        out_file.close();
 
-    void read_header(){
-        boost::asio::async_read(socket,
-                boost::asio::buffer(read_message.get_data(), ChatMessage::header_length),
-                [this](boost::system::error_code ec, std::size_t){
-                    if (!ec && read_message.decode_header()){
-                        read_body();
+                        file_count++;
+                        read_header();
                     }
-                    else{
-                        socket.close();
-                    }
-                });
-    }
+                }
+                else{
+                    socket.close();
+                }
+            });
+}
 
-    void read_body(){
-        boost::asio::async_read(socket,
-                boost::asio::buffer(read_message.body(), read_message.get_body_length()),
-                [this](boost::system::error_code ec, std::size_t){
-                    if (!ec){
-                        std::string type(read_message.get_data(), read_message.type_length);
-
-                        if (type == "MESS"){
-                            std::cout.write(read_message.body(), read_message.get_body_length());
-                            std::cout << std::endl;
-                            read_header();
-                        }
-                        else if (type == "FILE"){
-                            std::string filename = "../downloads/file";
-                            filename += std::to_string(file_count);
-                            std::cout << "Writing file content to " << filename << std::endl;
-                            std::ofstream out_file(filename, std::ofstream::out);
-                            out_file.write(read_message.body(), read_message.get_body_length());
-                            out_file.close();
-
-                            file_count++;
-                            read_header();
-                        }
+void ChatClient::do_write(){
+    boost::asio::async_write(socket,
+            boost::asio::buffer(write_messages.front().get_data(), write_messages.front().length()),
+            [this](boost::system::error_code ec, std::size_t){
+                if (!ec){
+                    write_messages.pop_front();
+                    if (!write_messages.empty()){
+                        do_write();
                     }
-                    else{
-                        socket.close();
-                    }
-                });
-    }
+                }
+                else{
+                    socket.close();
+                }
+            });
+}
 
-    void do_write(){
-        boost::asio::async_write(socket,
-                boost::asio::buffer(write_messages.front().get_data(), write_messages.front().length()),
-                [this](boost::system::error_code ec, std::size_t){
-                    if (!ec){
-                        write_messages.pop_front();
-                        if (!write_messages.empty()){
-                            do_write();
-                        }
-                    }
-                    else{
-                        socket.close();
-                    }
-                });
-    }
 
-    boost::asio::io_context& io_ctx;
-    tcp::socket socket;
-    ChatMessage read_message;
-    std::deque<ChatMessage> write_messages;
-};
 
 std::vector<char> readFileBytes(const std::string& name) {
     std::ifstream fl(name);
@@ -131,6 +114,8 @@ std::string extract_filename(std::string& path){
     std::string base_filename = path.substr(path.find_last_of("/\\") + 1);
     return base_filename;
 }
+
+
 
 int main(int argc, char* argv[]){
     try{

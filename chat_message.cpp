@@ -1,5 +1,3 @@
-#include <iostream>
-#include <algorithm>
 #include "chat_message.h"
 
 ChatMessage::ChatMessage() : body_length(0), header(header_length), body(max_body_length){}
@@ -53,9 +51,6 @@ bool ChatMessage::decode_header(){
     return true;
 }
 
-//  FILE0011example.txt0024ala ma kota a kot ma ale
-
-//  mając jakiś int np 340 zrobić sobie vector{' ', '3', '4', '0'}
 
 std::string number_in_header(std::size_t number){
     // we want to have block of 4 characters that store number
@@ -68,11 +63,25 @@ std::string number_in_header(std::size_t number){
     return s_num;
 }
 
-void ChatMessage::encode_header(const std::string& type){
-    //4 bytes of type (MESS/FILE), 4 bytes of body_length
+// last version: [TYPE][BODY_LEN]
 
-    std::copy(type.begin(), type.end(), header.begin());
+//  FILE 0024 0011
+// [TYPE][BODY_LEN][FILENAME_LEN]
+// [FILENAME] store in body
+void ChatMessage::encode_header(const std::string& type, int filename_len){
+    //4 bytes of type (MESS/FILE), 4 bytes of body_length, 4 bytes of filename_length
 
     std::string body_length_conv = number_in_header(body_length);
-    std::copy(body_length_conv.begin(), body_length_conv.end(), header.begin() + type_length);
+    std::string fn_length_conv = number_in_header(filename_len);
+    std::string h = type + body_length_conv + fn_length_conv;
+    std::copy(h.begin(), h.end(), header.begin());
+}
+
+std::string ChatMessage::get_type_from_header() {
+    return std::string(header.begin(), header.begin() + type_length);
+}
+
+std::size_t ChatMessage::get_filenamelen_from_header(){
+    std::string s(header.begin() + 8, header.end());
+    return std::atoi(s.c_str());
 }

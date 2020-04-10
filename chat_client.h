@@ -15,20 +15,13 @@
 class ChatClient{
 public:
     ChatClient(boost::asio::io_context& io_ctx_, const boost::asio::ip::tcp::resolver::results_type& endpoints);
-
     void write(const ChatMessage& message);
-
     void close();
 
 private:
-    unsigned int file_count = 1;
-
     void connect(const boost::asio::ip::tcp::resolver::results_type& endpoints);
-
     void read_header();
-
     void read_body();
-
     void do_write();
 
     boost::asio::io_context& io_ctx;

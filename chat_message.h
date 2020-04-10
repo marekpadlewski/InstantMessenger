@@ -7,7 +7,7 @@
 class ChatMessage{
 public:
     enum { type_length = 4};
-    enum { header_length = 8 };
+    enum { header_length = 12 };
     enum { max_body_length = 512 };
 
     ChatMessage();
@@ -25,8 +25,9 @@ public:
     void update_body_length(std::size_t new_length);
 
     bool decode_header();
-
-    void encode_header(const std::string& type);
+    void encode_header(const std::string& type, int filename_len);
+    std::string get_type_from_header();
+    std::size_t get_filenamelen_from_header();
 
 private:
     std::vector<char> header;

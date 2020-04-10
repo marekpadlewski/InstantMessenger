@@ -48,25 +48,25 @@ void ChatClient::read_body(){
             boost::asio::buffer(read_message.get_body_ref(), ChatMessage::max_body_length),
             [this](boost::system::error_code ec, std::size_t){
                 if (!ec){
-                    std::vector<char> h = read_message.get_header();
-                    std::string type(h.begin(), h.begin() + read_message.type_length);
+                    std::string msg_type = read_message.get_type_from_header();
+                    std::vector<char> msg_body = read_message.get_body();
 
-                    if (type == "MESS"){
-                        for (char c : read_message.get_body())
+                    if (msg_type == "MESS"){
+                        for (char c : msg_body)
                             std::cout << c;
                         std::cout << std::endl;
 
                         read_header();
                     }
-                    else if (type == "FILE"){
-                        std::string filename = "../downloads/file";
-                        filename += std::to_string(file_count);
+                    else if (msg_type == "FILE"){
+                        std::size_t filename_len = read_message.get_filenamelen_from_header();
+                        std::string filename(msg_body.begin(), msg_body.begin() + filename_len);
+                        filename = "../downloads/" + filename;
                         std::cout << "Writing file content to " << filename << std::endl;
                         std::ofstream out_file(filename, std::ofstream::out);
-                        out_file.write((char*)&read_message.get_body()[0], read_message.get_body_length());
+                        out_file.write((char*)&msg_body[filename_len], read_message.get_body_length() - filename_len);
                         out_file.close();
 
-                        file_count++;
                         read_header();
                     }
                 }
@@ -110,7 +110,7 @@ std::vector<char> readFileBytes(const std::string& name) {
     std::vector<char> ret(len);
     fl.seekg(0, std::ios::beg);
     if (len)
-        fl.read(&ret[0], len);
+        fl.read(&ret[0], ChatMessage::max_body_length);
     fl.close();
     return std::move(ret);
 }
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]){
                 std::cin.getline(line + l, ChatMessage::max_body_length + 1 - username.size());
                 message.update_body_length(std::strlen(line));
                 message.set_body(std::vector<char>(line, line + message.get_body_length()));
-                message.encode_header("MESS");
+                message.encode_header("MESS", 0);
                 c.write(message);
             }
             else if (command == "/send-file"){
@@ -175,14 +175,16 @@ int main(int argc, char* argv[]){
 
                     message.update_body_length(l + extracted_name.size() + 1);
                     message.set_body(std::vector<char>(line, line + message.get_body_length()));
-                    message.encode_header("MESS");
+                    message.encode_header("MESS", 0);
                     c.write(message);
 
                     std::vector<char> file_bytes = readFileBytes(file_path);
+                    file_bytes.insert(file_bytes.begin(), extracted_name.begin(), extracted_name.end());
+
                     message.update_body_length(file_bytes.size());
                     message.set_body(std::vector<char>(file_bytes.begin(),
                             file_bytes.begin() + message.get_body_length()));
-                    message.encode_header("FILE");
+                    message.encode_header("FILE", extracted_name.size());
                     c.write(message);
                 }
 

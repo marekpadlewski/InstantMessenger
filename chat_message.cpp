@@ -1,26 +1,35 @@
+#include <iostream>
+#include <algorithm>
 #include "chat_message.h"
 
-ChatMessage::ChatMessage() : body_length(0), data(header_length + max_body_length){}
+ChatMessage::ChatMessage() : body_length(0), header(header_length), body(max_body_length){}
 
-
-std::vector<char> ChatMessage::get_data(){
-    return data;
+std::vector<char> ChatMessage::get_header(){
+    return header;
 }
 
-void ChatMessage::set_data(const std::vector<char>& fresh_data) {
-    std::copy(fresh_data.begin(), fresh_data.end(), data.begin());
+std::vector<char>& ChatMessage::get_header_ref() {
+    return header;
 }
 
-std::size_t ChatMessage::length() const{
+void ChatMessage::set_header(const std::vector<char>& fresh_header) {
+    std::copy(fresh_header.begin(), fresh_header.end(), header.begin());
+}
+
+std::size_t ChatMessage::data_length() const{
     return header_length + body_length;
 }
 
-std::vector<char> ChatMessage::body(){
-    return std::vector<char>(data.begin() + header_length, data.end());
+std::vector<char> ChatMessage::get_body(){
+    return body;
 }
 
-void ChatMessage::set_body(const std::vector<char>& fresh_body) {
-    std::copy(fresh_body.begin(), fresh_body.end(), data.begin() + header_length);
+std::vector<char>& ChatMessage::get_body_ref(){
+    return body;
+}
+
+void ChatMessage::set_body(const std::vector<char>& fresh_body){
+    std::copy(fresh_body.begin(), fresh_body.end(), body.begin());
 }
 
 std::size_t ChatMessage::get_body_length() const{
@@ -33,12 +42,7 @@ void ChatMessage::update_body_length(std::size_t new_length){
         body_length = max_body_length;
 }
 
-void ChatMessage::set_header(const std::vector<char> &fresh_header) {
-    std::copy(fresh_header.begin(), fresh_header.end(), data.begin());
-}
-
 bool ChatMessage::decode_header(){
-    std::vector<char> header(data.begin(), data.begin() + header_length);
     std::string h(header.begin() + type_length, header.end());
     body_length = std::atoi(h.c_str());
     if (body_length > max_body_length){
@@ -62,16 +66,13 @@ std::string number_in_header(std::size_t number){
         s_num = ' ' + s_num;
 
     return s_num;
-    //TODO add declaration
 }
 
 void ChatMessage::encode_header(const std::string& type){
     //4 bytes of type (MESS/FILE), 4 bytes of body_length
-    std::vector<char> header(header_length + 1);
+
     std::copy(type.begin(), type.end(), header.begin());
 
     std::string body_length_conv = number_in_header(body_length);
     std::copy(body_length_conv.begin(), body_length_conv.end(), header.begin() + type_length);
-
-    std::copy(header.begin(), header.end(), data.begin());
 }

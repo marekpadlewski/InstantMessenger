@@ -14,7 +14,7 @@ void ChatRoom::deliver(const ChatMessage& message){
 
 void ChatRoom::join(const std::shared_ptr<ChatMember>& member){
     members.insert(member);
-    for (auto message : recent_messages_deq)
+    for (const auto& message : recent_messages_deq)
         member->deliver(message);
 }
 
@@ -26,11 +26,9 @@ void ChatRoom::leave(const std::shared_ptr<ChatMember>& member){
 
 void ChatSession::read_header(){
     auto self(shared_from_this());
-    std::vector<char> r_header(read_message.header_length);
     boost::asio::async_read(socket,
-            boost::asio::buffer(r_header, read_message.header_length),
-            [this, self, &r_header](boost::system::error_code ec, std::size_t){
-                read_message.set_header(r_header);
+            boost::asio::buffer(read_message.get_header_ref(), read_message.header_length),
+            [this, self](boost::system::error_code ec, std::size_t){
                 if (!ec && read_message.decode_header()){
                     read_body();
                 }
@@ -42,12 +40,9 @@ void ChatSession::read_header(){
 
 void ChatSession::read_body(){
     auto self(shared_from_this());
-    //TODO tutaj nie wiem czy ma byc max_body_length czy get_body_length
-    std::vector<char> r_body(read_message.get_body_length());
     boost::asio::async_read(socket,
-            boost::asio::buffer(r_body, read_message.get_body_length()),
-            [this, self, &r_body](boost::system::error_code ec, std::size_t){
-                read_message.set_body(r_body);
+            boost::asio::buffer(read_message.get_body_ref(), ChatMessage::max_body_length),
+            [this, self](boost::system::error_code ec, std::size_t){
                 if (!ec){
                     room.deliver(read_message);
                     read_header();
@@ -60,8 +55,17 @@ void ChatSession::read_body(){
 
 void ChatSession::write(){
     auto self(shared_from_this());
+
+    std::vector<char> collect_msg;
+    //concatenate header and body to one vector
+    std::vector<char> h = write_messages.front().get_header();
+    std::vector<char> b = write_messages.front().get_body();
+
+    collect_msg.insert(collect_msg.begin(), h.begin(), h.end());
+    collect_msg.insert(collect_msg.end(), b.begin(), b.end());
+
     boost::asio::async_write(socket,
-            boost::asio::buffer(write_messages.front().get_data(), write_messages.front().length()),
+            boost::asio::buffer(collect_msg),
             [this, self](boost::system::error_code ec, std::size_t){
                 if (!ec){
                     write_messages.pop_front();

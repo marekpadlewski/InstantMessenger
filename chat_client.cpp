@@ -30,11 +30,9 @@ void ChatClient::connect(const tcp::resolver::results_type& endpoints){
 }
 
 void ChatClient::read_header(){
-    std::vector<char> r_header(read_message.header_length);
     boost::asio::async_read(socket,
-            boost::asio::buffer(r_header, read_message.header_length),
-            [this, &r_header](boost::system::error_code ec, std::size_t){
-                read_message.set_header(r_header);
+            boost::asio::buffer(read_message.get_header_ref(), read_message.header_length),
+            [this](boost::system::error_code ec, std::size_t){
                 if (!ec && read_message.decode_header()){
                     read_body();
                 }
@@ -46,22 +44,18 @@ void ChatClient::read_header(){
 }
 
 void ChatClient::read_body(){
-    //TODO tutaj nie wiem czy ma byc max_body_length czy get_body_length
-    std::vector<char> r_body(read_message.get_body_length());
     boost::asio::async_read(socket,
-            boost::asio::buffer(r_body, read_message.get_body_length()),
-            [this, &r_body](boost::system::error_code ec, std::size_t){
-                read_message.set_body(r_body);
+            boost::asio::buffer(read_message.get_body_ref(), ChatMessage::max_body_length),
+            [this](boost::system::error_code ec, std::size_t){
                 if (!ec){
-                    std::string type(read_message.get_data().begin(),
-                            read_message.get_data().begin() + read_message.type_length);
+                    std::vector<char> h = read_message.get_header();
+                    std::string type(h.begin(), h.begin() + read_message.type_length);
 
                     if (type == "MESS"){
-                        //std::cout.write(read_message.body(), read_message.get_body_length());
-                        std::for_each(read_message.body().begin(),
-                                read_message.body().begin() + read_message.get_body_length(),
-                                [](char c){ std::cout << c; });
+                        for (char c : read_message.get_body())
+                            std::cout << c;
                         std::cout << std::endl;
+
                         read_header();
                     }
                     else if (type == "FILE"){
@@ -69,8 +63,7 @@ void ChatClient::read_body(){
                         filename += std::to_string(file_count);
                         std::cout << "Writing file content to " << filename << std::endl;
                         std::ofstream out_file(filename, std::ofstream::out);
-                        //TODO ???
-                        out_file.write((char*)&read_message.body()[0], read_message.get_body_length());
+                        out_file.write((char*)&read_message.get_body()[0], read_message.get_body_length());
                         out_file.close();
 
                         file_count++;
@@ -84,8 +77,16 @@ void ChatClient::read_body(){
 }
 
 void ChatClient::do_write(){
+    std::vector<char> collect_msg;
+    //concatenate header and body to one vector
+    std::vector<char> h = write_messages.front().get_header();
+    std::vector<char> b = write_messages.front().get_body();
+
+    collect_msg.insert(collect_msg.begin(), h.begin(), h.end());
+    collect_msg.insert(collect_msg.end(), b.begin(), b.end());
+
     boost::asio::async_write(socket,
-            boost::asio::buffer(write_messages.front().get_data(), write_messages.front().length()),
+            boost::asio::buffer(collect_msg),
             [this](boost::system::error_code ec, std::size_t){
                 if (!ec){
                     write_messages.pop_front();
@@ -157,9 +158,8 @@ int main(int argc, char* argv[]){
 
             if (command == "/send-message"){
                 std::cin.getline(line + l, ChatMessage::max_body_length + 1 - username.size());
-                message.update_body_length(std::strlen(line) - 1);
-                //std::memcpy(message.body(), line, message.get_body_length());
-                message.set_body(std::vector<char>(line, line + message.get_body_length() - 1));
+                message.update_body_length(std::strlen(line));
+                message.set_body(std::vector<char>(line, line + message.get_body_length()));
                 message.encode_header("MESS");
                 c.write(message);
             }
@@ -171,18 +171,15 @@ int main(int argc, char* argv[]){
                 else{
                     std::string extracted_name = extract_filename(file_path);
                     line[l] = ' ';
-                    //std::memcpy(line + l + 1, extracted_name.c_str(), extracted_name.size());
                     std::copy(extracted_name.begin(), extracted_name.end(), line + l + 1);
 
                     message.update_body_length(l + extracted_name.size() + 1);
-                    //std::memcpy(message.body(), line, message.get_body_length());
                     message.set_body(std::vector<char>(line, line + message.get_body_length()));
                     message.encode_header("MESS");
                     c.write(message);
 
                     std::vector<char> file_bytes = readFileBytes(file_path);
                     message.update_body_length(file_bytes.size());
-                    //std::memcpy(message.body(), file_bytes.data(), s);
                     message.set_body(std::vector<char>(file_bytes.begin(),
                             file_bytes.begin() + message.get_body_length()));
                     message.encode_header("FILE");

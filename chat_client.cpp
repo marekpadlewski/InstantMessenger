@@ -61,11 +61,9 @@ void ChatClient::read_body(){
                     else if (msg_type == "FILE"){
                         std::size_t filename_len = read_message.get_filenamelen_from_header();
                         std::string filename(msg_body.begin(), msg_body.begin() + filename_len);
-                        filename = "../downloads/" + filename;
-                        std::cout << "Writing file content to " << filename << std::endl;
-                        std::ofstream out_file(filename, std::ofstream::out);
-                        out_file.write((char*)&msg_body[filename_len], read_message.get_body_length() - filename_len);
-                        out_file.close();
+
+                        received_files.emplace_back(filename, std::vector<char>(msg_body.begin() + filename_len,
+                                msg_body.begin() + read_message.get_body_length()));
 
                         read_header();
                     }
@@ -100,7 +98,21 @@ void ChatClient::do_write(){
             });
 }
 
+std::vector<std::pair<std::string, std::vector<char>>> ChatClient::get_files_list() {
+    return received_files;
+}
 
+
+
+bool file_exists(const std::string& name){
+    std::ifstream fl(name);
+    return fl.good();
+}
+
+std::string extract_filename(std::string& path){
+    std::string base_filename = path.substr(path.find_last_of("/\\") + 1);
+    return base_filename;
+}
 
 std::vector<char> readFileBytes(const std::string& name) {
     std::ifstream fl(name);
@@ -115,17 +127,16 @@ std::vector<char> readFileBytes(const std::string& name) {
     return std::move(ret);
 }
 
-bool file_exists(const std::string& name){
-    std::ifstream fl(name);
-    return fl.good();
+void save_file(const std::pair<std::string, std::vector<char>>& f){
+    std::string filename = f.first;
+    filename = "../downloads/" + filename;
+    std::cout << "Saving file to " << filename << std::endl;
+
+    std::ofstream out_file(filename, std::ofstream::out);
+    out_file.write((char*)&f.second[0], f.second.size());
+    out_file.close();
+
 }
-
-std::string extract_filename(std::string& path){
-    std::string base_filename = path.substr(path.find_last_of("/\\") + 1);
-    return base_filename;
-}
-
-
 
 int main(int argc, char* argv[]){
     try{
@@ -165,7 +176,8 @@ int main(int argc, char* argv[]){
             }
             else if (command == "/send-file"){
                 std::string file_path;
-                std::cin >> file_path;
+                std::getline(std::cin, file_path);
+                file_path.erase(0, 1);
                 if (!file_exists(file_path))
                     std::cout << "There's no such file!" << std::endl;
                 else{
@@ -189,9 +201,32 @@ int main(int argc, char* argv[]){
                 }
 
             }
+            else if(command == "/show-files"){
+                for (const auto& f : c.get_files_list())
+                    std::cout << f.first << " ; ";
+
+                std::cout << std::endl;
+            }
+            else if(command == "/save-file"){
+                std::string filename;
+                std::getline(std::cin, filename);
+                filename.erase(0, 1);
+
+                bool file_on_list = false;
+                for (const auto& f : c.get_files_list()){
+                    if (f.first == filename){
+                        save_file(f);
+                        file_on_list = true;
+                    }
+                }
+
+                if (!file_on_list)
+                    std::cout << "There's no such file on list." << std::endl;
+
+            }
             else{
                 std::cin.getline(line + l, ChatMessage::max_body_length + 1);
-                std::cout << "Wrong command! Commands list: /send-message , /send-file" << std::endl;
+                std::cout << "Wrong command! Commands list: /send-message ; /send-file ; /save-file ; /show-files" << std::endl;
             }
         }
 

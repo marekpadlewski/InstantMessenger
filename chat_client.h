@@ -17,6 +17,7 @@ public:
     ChatClient(boost::asio::io_context& io_ctx_, const boost::asio::ip::tcp::resolver::results_type& endpoints);
     void write(const ChatMessage& message);
     void close();
+    std::vector<std::pair<std::string, std::vector<char>>> get_files_list();
 
 private:
     void connect(const boost::asio::ip::tcp::resolver::results_type& endpoints);
@@ -28,6 +29,7 @@ private:
     boost::asio::ip::tcp::socket socket;
     ChatMessage read_message;
     std::deque<ChatMessage> write_messages;
+    std::vector<std::pair<std::string, std::vector<char>>> received_files;
 };
 
 std::vector<char> readFileBytes(const std::string& name);

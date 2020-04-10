@@ -26,9 +26,11 @@ void ChatRoom::leave(const std::shared_ptr<ChatMember>& member){
 
 void ChatSession::read_header(){
     auto self(shared_from_this());
+    std::vector<char> r_header(read_message.header_length);
     boost::asio::async_read(socket,
-            boost::asio::buffer(read_message.get_data(), ChatMessage::header_length),
-            [this, self](boost::system::error_code ec, std::size_t){
+            boost::asio::buffer(r_header, read_message.header_length),
+            [this, self, &r_header](boost::system::error_code ec, std::size_t){
+                read_message.set_header(r_header);
                 if (!ec && read_message.decode_header()){
                     read_body();
                 }
@@ -40,9 +42,12 @@ void ChatSession::read_header(){
 
 void ChatSession::read_body(){
     auto self(shared_from_this());
+    //TODO tutaj nie wiem czy ma byc max_body_length czy get_body_length
+    std::vector<char> r_body(read_message.get_body_length());
     boost::asio::async_read(socket,
-            boost::asio::buffer(read_message.body(), read_message.get_body_length()),
-            [this, self](boost::system::error_code ec, std::size_t){
+            boost::asio::buffer(r_body, read_message.get_body_length()),
+            [this, self, &r_body](boost::system::error_code ec, std::size_t){
+                read_message.set_body(r_body);
                 if (!ec){
                     room.deliver(read_message);
                     read_header();

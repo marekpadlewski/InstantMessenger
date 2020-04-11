@@ -14,7 +14,6 @@ public:
 
     std::vector<char> get_header();
     std::vector<char>& get_header_ref();
-    void set_header(const std::vector<char>& fresh_header);
 
     std::size_t data_length() const;
 
@@ -27,7 +26,7 @@ public:
     bool decode_header();
     void encode_header(const std::string& type, int filename_len);
     std::string get_type_from_header();
-    std::size_t get_filenamelen_from_header();
+    std::size_t get_filename_len_from_header();
 
 private:
     std::vector<char> header;

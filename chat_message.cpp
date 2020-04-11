@@ -10,10 +10,6 @@ std::vector<char>& ChatMessage::get_header_ref() {
     return header;
 }
 
-void ChatMessage::set_header(const std::vector<char>& fresh_header) {
-    std::copy(fresh_header.begin(), fresh_header.end(), header.begin());
-}
-
 std::size_t ChatMessage::data_length() const{
     return header_length + body_length;
 }
@@ -63,8 +59,6 @@ std::string number_in_header(std::size_t number){
     return s_num;
 }
 
-// last version: [TYPE][BODY_LEN]
-
 //  FILE 0024 0011
 // [TYPE][BODY_LEN][FILENAME_LEN]
 // [FILENAME] store in body
@@ -81,7 +75,7 @@ std::string ChatMessage::get_type_from_header() {
     return std::string(header.begin(), header.begin() + type_length);
 }
 
-std::size_t ChatMessage::get_filenamelen_from_header(){
+std::size_t ChatMessage::get_filename_len_from_header(){
     std::string s(header.begin() + 8, header.end());
     return std::atoi(s.c_str());
 }

@@ -59,7 +59,7 @@ void ChatClient::read_body(){
                         read_header();
                     }
                     else if (msg_type == "FILE"){
-                        std::size_t filename_len = read_message.get_filenamelen_from_header();
+                        std::size_t filename_len = read_message.get_filename_len_from_header();
                         std::string filename(msg_body.begin(), msg_body.begin() + filename_len);
 
                         received_files.emplace_back(filename, std::vector<char>(msg_body.begin() + filename_len,
@@ -162,6 +162,8 @@ int main(int argc, char* argv[]){
         //  COMMANDS
         //  /send-message <message>
         //  /send-file <path>
+        //  /save-file <file_name>
+        //  /show-files
 
         std::string command;
         while (std::cin >> command){

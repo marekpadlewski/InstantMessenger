@@ -1,12 +1,10 @@
 #pragma once
 
-#include <cstdlib>
-#include <deque>
 #include <iostream>
 #include <thread>
 #include <fstream>
+#include <deque>
 #include <vector>
-#include <queue>
 
 #include <boost/asio.hpp>
 
@@ -15,6 +13,7 @@
 class ChatClient{
 public:
     ChatClient(boost::asio::io_context& io_ctx_, const boost::asio::ip::tcp::resolver::results_type& endpoints);
+
     void write(const ChatMessage& message);
     void close();
     std::vector<std::pair<std::string, std::vector<char>>> get_files_list();

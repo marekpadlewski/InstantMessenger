@@ -1,12 +1,10 @@
 #pragma once
 
-#include <cstdlib>
-#include <deque>
 #include <iostream>
-#include <list>
-#include <memory>
-#include <set>
 #include <utility>
+#include <deque>
+#include <list>
+#include <set>
 
 #include <boost/asio.hpp>
 
@@ -25,9 +23,7 @@ private:
     const unsigned int MAX_RECENT_MESSAGES = 100;
 public:
     void deliver(const ChatMessage& message);
-
     void join(const std::shared_ptr<ChatMember>& member);
-
     void leave(const std::shared_ptr<ChatMember>& member);
 };
 
@@ -39,16 +35,12 @@ private:
     std::deque<ChatMessage> write_messages;
 
     void read_header();
-
     void read_body();
-
     void write();
-
 public:
     ChatSession(boost::asio::ip::tcp::socket socket_, ChatRoom& room_);
 
     void start();
-
     void deliver(const ChatMessage& message) override;
 };
 
@@ -58,7 +50,6 @@ private:
     ChatRoom room;
 
     void accept();
-
 public:
     ChatServer(boost::asio::io_context& io_ctx, const boost::asio::ip::tcp::endpoint& endpoint);
 };

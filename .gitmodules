@@ -1,0 +1,3 @@
+[submodule "messenger_tests/googletest"]
+	path = messenger_tests/googletest
+	url = https://github.com/google/googletest

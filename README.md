@@ -2,15 +2,20 @@
 
 ### Build and compilation
 
-```
+```bash
 mkdir downloads
 mkdir build
 cd build
 cmake ..
 make
 
+# to run application
 ./server <port> [<port> ...]
 ./client <host> <port> <username>
+
+# to run unit tests
+cd messenger_tests
+./messenger_tests_run
 ```
 
 ### Commands in application

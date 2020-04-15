@@ -3,6 +3,10 @@
 ### Build and compilation
 
 ```bash
+# initialize googletest at the beginning
+git submodule update --init
+
+# build project
 mkdir downloads
 mkdir build
 cd build

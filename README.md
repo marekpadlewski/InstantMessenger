@@ -7,10 +7,9 @@
 git submodule update --init
 
 # build project
-mkdir downloads
 mkdir build
 cd build
-cmake ..
+cmake .. -DBOOST_ROOT=<path_to_boost>
 make
 
 # to run application
@@ -33,6 +32,6 @@ cd messenger_tests
 
 Each file that you receive from chat praticipants is not saved immediately.  
 You have to save specific file using `/save-file` command.  
-File will be saved at `downloads` directory with the same name.  
+File will be saved at current directory with the same name.  
 
 

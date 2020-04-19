@@ -129,7 +129,6 @@ std::vector<char> readFileBytes(const std::string& name) {
 
 void save_file(const std::pair<std::string, std::vector<char>>& f){
     std::string filename = f.first;
-    filename = "../downloads/" + filename;
     std::cout << "Saving file to " << filename << std::endl;
 
     std::ofstream out_file(filename, std::ofstream::out);

@@ -13,7 +13,7 @@ find_package(Boost)
 find_package(Threads)
 if(Boost_FOUND AND Threads_FOUND)
     message(STATUS "Success!")
-    #include_directories(${Boost_INCLUDE_DIRS})
+    include_directories(${Boost_INCLUDE_DIRS})
 
     add_executable(server chat_server.cpp chat_server.h chat_message.cpp  chat_message.h)
     add_executable(client chat_client.cpp chat_client.h chat_message.cpp  chat_message.h)

@@ -23,7 +23,7 @@ TEST(ChatMessageTest, DataBodyTest){
     ASSERT_THAT(body,testing::ContainerEq(std::vector<char>(gb.begin(), gb.begin() + cm.get_body_length())));
 }
 
-TEST(ChatMessageTest, DataHeaderTest){
+TEST(ChatMessageTest, HeaderFileTest){
     ChatMessage cm;
 
     std::string type = "FILE";
@@ -41,4 +41,22 @@ TEST(ChatMessageTest, DataHeaderTest){
     EXPECT_TRUE(cm.decode_header());
     ASSERT_THAT(std::vector<char>(expected_header.begin(), expected_header.end()),
             testing::ContainerEq(cm.get_header()));
+}
+
+TEST(ChatMessageTest, HeaderMessTest){
+    ChatMessage cm;
+
+    std::string type = "MESS";
+    std::string b_str = "Nickname: This is the text message.\nSecond line of text.";
+    std::string expected_header = "MESS  56   0";
+    std::vector<char> body(b_str.begin(), b_str.end());
+
+    cm.update_body_length(body.size());
+    cm.set_body(body);
+    cm.encode_header(type, 0);
+
+    EXPECT_EQ(type, cm.get_type_from_header());
+    EXPECT_TRUE(cm.decode_header());
+    ASSERT_THAT(std::vector<char>(expected_header.begin(), expected_header.end()),
+                testing::ContainerEq(cm.get_header()));
 }

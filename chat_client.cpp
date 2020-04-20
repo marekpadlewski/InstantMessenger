@@ -137,6 +137,87 @@ void save_file(const std::pair<std::string, std::vector<char>>& f){
 
 }
 
+void send_message_command(ChatClient& c, char* line, int l){
+    ChatMessage message;
+    std::cin.getline(line + l, ChatMessage::max_body_length + 1 - l);
+    message.update_body_length(std::strlen(line));
+    message.set_body(std::vector<char>(line, line + message.get_body_length()));
+    message.encode_header("MESS", 0);
+    c.write(message);
+}
+
+void send_file_command(ChatClient& c, char* line, int l){
+    ChatMessage message;
+    std::string file_path;
+    std::getline(std::cin, file_path);
+    file_path.erase(0, 1);
+    if (!file_exists(file_path))
+        std::cout << "There's no such file!" << std::endl;
+    else{
+        std::string extracted_name = extract_filename(file_path);
+        line[l] = ' ';
+        std::copy(extracted_name.begin(), extracted_name.end(), line + l + 1);
+
+        message.update_body_length(l + extracted_name.size() + 1);
+        message.set_body(std::vector<char>(line, line + message.get_body_length()));
+        message.encode_header("MESS", 0);
+        c.write(message);
+
+        std::vector<char> file_bytes = readFileBytes(file_path);
+        file_bytes.insert(file_bytes.begin(), extracted_name.begin(), extracted_name.end());
+
+        message.update_body_length(file_bytes.size());
+        message.set_body(std::vector<char>(file_bytes.begin(),
+                                           file_bytes.begin() + message.get_body_length()));
+        message.encode_header("FILE", extracted_name.size());
+        c.write(message);
+    }
+}
+
+void show_files_command(ChatClient& c){
+    for (const auto& f : c.get_files_list())
+        std::cout << f.first << " ; ";
+
+    std::cout << std::endl;
+}
+
+void save_file_command(ChatClient& c){
+    std::string filename;
+    std::getline(std::cin, filename);
+    filename.erase(0, 1);
+
+    bool file_on_list = false;
+    for (const auto& f : c.get_files_list()){
+        if (f.first == filename){
+            save_file(f);
+            file_on_list = true;
+        }
+    }
+
+    if (!file_on_list)
+        std::cout << "There's no such file on list." << std::endl;
+}
+
+void input_manager(ChatClient& c, char* line, int l){
+    //  COMMANDS
+    //  /send-message <message>
+    //  /send-file <path>
+    //  /save-file <file_name>
+    //  /show-files
+
+    std::string command;
+    while (std::cin >> command){
+        if (command == "/send-message") send_message_command(c, line, l);
+        else if (command == "/send-file") send_file_command(c, line, l);
+        else if(command == "/show-files") show_files_command(c);
+        else if(command == "/save-file") save_file_command(c);
+        else{
+            std::cin.getline(line + l, ChatMessage::max_body_length + 1);
+            std::cout << "Wrong command! Commands list: /send-message ; /send-file ; /save-file ; /show-files" << std::endl;
+        }
+    }
+}
+
 int main(int argc, char* argv[]){
     try{
         if (argc != 4){
@@ -158,78 +239,7 @@ int main(int argc, char* argv[]){
         int l = username.size();
         std::memcpy(line, username.c_str(), username.size());
 
-        //  COMMANDS
-        //  /send-message <message>
-        //  /send-file <path>
-        //  /save-file <file_name>
-        //  /show-files
-
-        std::string command;
-        while (std::cin >> command){
-            ChatMessage message;
-
-            if (command == "/send-message"){
-                std::cin.getline(line + l, ChatMessage::max_body_length + 1 - username.size());
-                message.update_body_length(std::strlen(line));
-                message.set_body(std::vector<char>(line, line + message.get_body_length()));
-                message.encode_header("MESS", 0);
-                c.write(message);
-            }
-            else if (command == "/send-file"){
-                std::string file_path;
-                std::getline(std::cin, file_path);
-                file_path.erase(0, 1);
-                if (!file_exists(file_path))
-                    std::cout << "There's no such file!" << std::endl;
-                else{
-                    std::string extracted_name = extract_filename(file_path);
-                    line[l] = ' ';
-                    std::copy(extracted_name.begin(), extracted_name.end(), line + l + 1);
-
-                    message.update_body_length(l + extracted_name.size() + 1);
-                    message.set_body(std::vector<char>(line, line + message.get_body_length()));
-                    message.encode_header("MESS", 0);
-                    c.write(message);
-
-                    std::vector<char> file_bytes = readFileBytes(file_path);
-                    file_bytes.insert(file_bytes.begin(), extracted_name.begin(), extracted_name.end());
-
-                    message.update_body_length(file_bytes.size());
-                    message.set_body(std::vector<char>(file_bytes.begin(),
-                            file_bytes.begin() + message.get_body_length()));
-                    message.encode_header("FILE", extracted_name.size());
-                    c.write(message);
-                }
-
-            }
-            else if(command == "/show-files"){
-                for (const auto& f : c.get_files_list())
-                    std::cout << f.first << " ; ";
-
-                std::cout << std::endl;
-            }
-            else if(command == "/save-file"){
-                std::string filename;
-                std::getline(std::cin, filename);
-                filename.erase(0, 1);
-
-                bool file_on_list = false;
-                for (const auto& f : c.get_files_list()){
-                    if (f.first == filename){
-                        save_file(f);
-                        file_on_list = true;
-                    }
-                }
-
-                if (!file_on_list)
-                    std::cout << "There's no such file on list." << std::endl;
-
-            }
-            else{
-                std::cin.getline(line + l, ChatMessage::max_body_length + 1);
-                std::cout << "Wrong command! Commands list: /send-message ; /send-file ; /save-file ; /show-files" << std::endl;
-            }
-        }
+        input_manager(c, line, l);
 
         c.close();
         t.join();
